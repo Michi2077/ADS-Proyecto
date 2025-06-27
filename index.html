@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrama ER - Aplicación Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .dragging {
+            z-index: 1000;
+            transform: scale(1.05);
+        }
+        .relation-mode {
+            cursor: crosshair;
+        }
+        .entity {
+            position: absolute;
+            background: white;
+            border: 2px solid #4F46E5;
+            border-radius: 8px;
+            padding: 12px;
+            min-width: 120px;
+            min-height: 80px;
+        }
+        .attribute {
+            position: absolute;
+            background: white;
+            border: 2px solid #10B981;
+            border-radius: 50%;
+            width: 80px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            text-align: center;
+            z-index: 100;
+        }
+        .key-attribute {
+            border-bottom: 3px solid #000;
+        }
+        .multivalued-attribute {
+            border: double 3px #F59E0B;
+        }
+        .cardinality {
+            position: absolute;
+            font-size: 10px;
+            background: white;
+            padding: 2px 4px;
+            border-radius: 4px;
+            border: 1px solid #6B7280;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                Diagrama Entidad-Relación Completo
+            </h1>
+            <p class="text-gray-600">Con soporte multimedia (MP3, MP4, JPG) y relaciones avanzadas</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Panel de Control -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Crear Entidad -->
+                <div class="bg-white rounded-lg shadow-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Crear Entidad</h3>
+                    <div class="space-y-3">
+                        <input
+                            type="text"
+                            id="entityName"
+                            placeholder="Nombre de la entidad"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Atributos:</label>
+                            <div id="attributesList">
+                                <div class="flex gap-2 mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Atributo"
+                                        class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        onclick="removeAttribute(this)"
+                                        class="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                                    >
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button
+                                id="addAttributeBtn"
+                                class="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                                + Agregar atributo
+                            </button>
+                        </div>
+
+                        <button
+                            id="addEntityBtn"
+                            class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
+                        >
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            Agregar Entidad
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Herramientas -->
+                <div class="bg-white rounded-lg shadow-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Herramientas</h3>
+                    <div class="space-y-2">
+                        <button
+                            id="relationBtn"
+                            class="w-full py-2 px-4 rounded-md flex items-center justify-center gap-2 bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        >
+                            <i data-lucide="move" class="w-4 h-4"></i>
+                            <span>Crear Relación</span>
+                        </button>
+                        
+                        <div id="relationTypeContainer" class="hidden space-y-2">
+                            <select id="relationType" class="w-full border rounded p-2 text-sm">
+                                <option value="1:1">1:1 (Uno a Uno)</option>
+                                <option value="1:N" selected>1:N (Uno a Muchos)</option>
+                                <option value="N:M">N:M (Muchos a Muchos)</option>
+                            </select>
+                            <button
+                                id="confirmRelationBtn"
+                                class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700"
+                            >
+                                Confirmar Relación
+                            </button>
+                        </div>
+                        
+                        <button
+                            id="setKeyBtn"
+                            class="w-full bg-yellow-500 text-white py-2 px-4 rounded-md hover:bg-yellow-600 flex items-center justify-center gap-2"
+                        >
+                            <i data-lucide="key" class="w-4 h-4"></i>
+                            Marcar como Clave
+                        </button>
+                        
+                        <button
+                            id="setMultiBtn"
+                            class="w-full bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 flex items-center justify-center gap-2"
+                        >
+                            <i data-lucide="list" class="w-4 h-4"></i>
+                            Multivaluado
+                        </button>
+                        
+                        <button
+                            id="uploadBtn"
+                            class="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 flex items-center justify-center gap-2"
+                        >
+                            <i data-lucide="upload" class="w-4 h-4"></i>
+                            Subir Multimedia
+                        </button>
+                        
+                        <button
+                            id="exportBtn"
+                            class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2"
+                        >
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            Exportar Diagrama
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Multimedia -->
+                <div class="bg-white rounded-lg shadow-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Archivos Multimedia</h3>
+                    <div id="mediaList" class="space-y-2 max-h-48 overflow-y-auto">
+                        <p class="text-gray-500 text-sm">No hay archivos multimedia</p>
+                    </div>
+                </div>
+
+                <!-- Leyenda -->
+                <div class="bg-white rounded-lg shadow-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Leyenda</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 border-2 border-blue-500 rounded"></div>
+                            <span>Entidad</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 border-2 border-green-500 rounded-full"></div>
+                            <span>Atributo</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 border-2 border-green-500 rounded-full border-b-4 border-b-black"></div>
+                            <span>Atributo Clave</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 border-2 border-orange-500 rounded-full border-style-double"></div>
+                            <span>Multivaluado</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 border-2 border-purple-500 transform rotate-45"></div>
+                            <span>Relación</span>
+                        </div>
+                        <div class="mt-2">
+                            <p class="font-medium">Cardinalidades:</p>
+                            <p>• 1:1 - Uno a Uno</p>
+                            <p>• 1:N - Uno a Muchos</p>
+                            <p>• N:M - Muchos a Muchos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Área de Dibujo -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-lg shadow-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Diagrama ER</h3>
+                    <div 
+                        id="canvas"
+                        class="relative w-full border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-gray-50"
+                        style="min-height: 600px;"
+                    >
+                        <!-- SVG para relaciones -->
+                        <svg id="relationsSvg" class="absolute inset-0 w-full h-full pointer-events-none">
+                        </svg>
+
+                        <!-- Instrucciones iniciales -->
+                        <div id="emptyState" class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center text-gray-500">
+                                <i data-lucide="square" class="w-12 h-12 mx-auto mb-4 text-gray-300"></i>
+                                <p>Agrega entidades para comenzar a crear tu diagrama</p>
+                                <p class="text-sm mt-2">Arrastra las entidades para moverlas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reproductor Multimedia -->
+                <div id="mediaPlayer" class="bg-white rounded-lg shadow-lg p-4 mt-6 hidden">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-800">Reproductor Multimedia</h3>
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1" id="mediaContent">
+                        </div>
+                        <div class="text-sm text-gray-600" id="mediaInfo">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input oculto para archivos -->
+    <input
+        id="fileInput"
+        type="file"
+        multiple
+        accept=".mp3,.mp4,.jpg,.jpeg,.png,.gif"
+        class="hidden"
+    />
+
+    <script>
+        // Estado de la aplicación
+        let entities = [];
+        let relationships = [];
+        let mediaFiles = [];
+        let selectedEntity = null;
+        let selectedAttribute = null;
+        let isDrawingRelation = false;
+        let relationStart = null;
+        let draggedEntity = null;
+        let dragOffset = { x: 0, y: 0 };
+        let tempLine = null;
+
+        // Referencias DOM
+        const canvas = document.getElementById('canvas');
+        const entityNameInput = document.getElementById('entityName');
+        const attributesList = document.getElementById('attributesList');
+        const addAttributeBtn = document.getElementById('addAttributeBtn');
+        const addEntityBtn = document.getElementById('addEntityBtn');
+        const relationBtn = document.getElementById('relationBtn');
+        const relationTypeContainer = document.getElementById('relationTypeContainer');
+        const relationType = document.getElementById('relationType');
+        const confirmRelationBtn = document.getElementById('confirmRelationBtn');
+        const setKeyBtn = document.getElementById('setKeyBtn');
+        const setMultiBtn = document.getElementById('setMultiBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const fileInput = document.getElementById('fileInput');
+        const mediaList = document.getElementById('mediaList');
+        const mediaPlayer = document.getElementById('mediaPlayer');
+        const mediaContent = document.getElementById('mediaContent');
+        const mediaInfo = document.getElementById('mediaInfo');
+        const emptyState = document.getElementById('emptyState');
+        const relationsSvg = document.getElementById('relationsSvg');
+
+        // Inicializar iconos de Lucide
+        lucide.createIcons();
+
+        // Función para agregar atributo
+        function addAttribute() {
+            const attributeDiv = document.createElement('div');
+            attributeDiv.className = 'flex gap-2 mb-2';
+            attributeDiv.innerHTML = `
+                <input
+                    type="text"
+                    placeholder="Atributo"
+                    class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <button
+                    onclick="removeAttribute(this)"
+                    class="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                >
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                </button>
+            `;
+            attributesList.appendChild(attributeDiv);
+            lucide.createIcons();
+        }
+
+        // Función para eliminar atributo
+        function removeAttribute(button) {
+            const attributeItems = attributesList.querySelectorAll('.flex.gap-2.mb-2');
+            if (attributeItems.length > 1) {
+                button.closest('.flex.gap-2.mb-2').remove();
+            } else {
+                alert("Debe haber al menos un atributo");
+            }
+        }
+
+        // Función para obtener atributos
+        function getAttributes() {
+            const inputs = attributesList.querySelectorAll('input');
+            return Array.from(inputs)
+                .map(input => ({
+                    name: input.value.trim(),
+                    isKey: false,
+                    isMultivalued: false
+                }))
+                .filter(attr => attr.name);
+        }
+
+        // Función para agregar entidad
+        function addEntity() {
+            const name = entityNameInput.value.trim();
+            const attributes = getAttributes();
+            
+            if (name) {
+                const entity = {
+                    id: Date.now(),
+                    name: name,
+                    attributes: attributes,
+                    x: Math.random() * 400 + 50,
+                    y: Math.random() * 300 + 50,
+                    width: 120,
+                    height: 80
+                };
+                
+                // Marcar el primer atributo como clave
+                if (entity.attributes.length > 0) {
+                    entity.attributes[0].isKey = true;
+                }
+                
+                entities.push(entity);
+                renderEntities();
+                clearEntityForm();
+            }
+        }
+
+        // Función para limpiar formulario
+        function clearEntityForm() {
+            entityNameInput.value = '';
+            attributesList.innerHTML = `
+                <div class="flex gap-2 mb-2">
+                    <input
+                        type="text"
+                        placeholder="Atributo"
+                        class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button
+                        onclick="removeAttribute(this)"
+                        class="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                    >
+                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                    </button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // Función para renderizar entidades
+        function renderEntities() {
+            // Limpiar entidades existentes
+            const existingEntities = canvas.querySelectorAll('.entity, .attribute, .cardinality');
+            existingEntities.forEach(el => el.remove());
+            relationsSvg.innerHTML = '';
+
+            if (entities.length === 0) {
+                emptyState.style.display = 'flex';
+            } else {
+                emptyState.style.display = 'none';
+            }
+
+            entities.forEach(entity => {
+                const entityEl = document.createElement('div');
+                entityEl.className = `entity absolute bg-white border-2 border-blue-500 rounded-lg p-3 cursor-move shadow-md hover:shadow-lg transition-shadow`;
+                entityEl.style.left = entity.x + 'px';
+                entityEl.style.top = entity.y + 'px';
+                entityEl.style.width = entity.width + 'px';
+                entityEl.style.minHeight = entity.height + 'px';
+                entityEl.dataset.entityId = entity.id;
+
+                entityEl.innerHTML = `
+                    <div class="font-semibold text-center text-gray-800 border-b border-gray-200 pb-1 mb-2">
+                        ${entity.name}
+                    </div>
+                    <button
+                        onclick="deleteEntity(${entity.id})"
+                        class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                    >
+                        ×
+                    </button>
+                `;
+
+                // Event listeners para drag y click
+                entityEl.addEventListener('mousedown', (e) => handleMouseDown(e, entity));
+                entityEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    handleEntityClick(entity);
+                });
+
+                canvas.appendChild(entityEl);
+                renderEntityAttributes(entity);
+            });
+
+            renderRelationships();
+        }
+
+        // Función para renderizar atributos de entidad
+        function renderEntityAttributes(entity) {
+            const angleStep = (2 * Math.PI) / entity.attributes.length;
+            const radius = 100;
+            
+            entity.attributes.forEach((attr, index) => {
+                const angle = angleStep * index;
+                const x = entity.x + entity.width/2 + Math.cos(angle) * radius - 40;
+                const y = entity.y + entity.height/2 + Math.sin(angle) * radius - 20;
+                
+                const attrEl = document.createElement('div');
+                attrEl.className = 'attribute absolute';
+                attrEl.style.left = x + 'px';
+                attrEl.style.top = y + 'px';
+                attrEl.textContent = attr.name;
+                attrEl.dataset.entityId = entity.id;
+                attrEl.dataset.attrIndex = index;
+                
+                // Aplicar estilos según el tipo de atributo
+                if (attr.isKey) {
+                    attrEl.classList.add('key-attribute');
+                }
+                if (attr.isMultivalued) {
+                    attrEl.classList.add('multivalued-attribute');
+                }
+                
+                // Conectar con línea a la entidad
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', entity.x + entity.width/2);
+                line.setAttribute('y1', entity.y + entity.height/2);
+                line.setAttribute('x2', x + 40);
+                line.setAttribute('y2', y + 20);
+                line.setAttribute('stroke', '#6B7280');
+                line.setAttribute('stroke-width', '1');
+                relationsSvg.appendChild(line);
+                
+                // Event listener para seleccionar atributo
+                attrEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectAttribute(entity, index);
+                });
+                
+                canvas.appendChild(attrEl);
+            });
+        }
+
+        // Función para seleccionar atributo
+        function selectAttribute(entity, index) {
+            selectedAttribute = { entity, index };
+            const allAttributes = canvas.querySelectorAll('.attribute');
+            allAttributes.forEach(attr => {
+                attr.classList.remove('ring-2', 'ring-yellow-400');
+            });
+            
+            const selectedAttrEl = canvas.querySelector(`.attribute[data-entity-id="${entity.id}"][data-attr-index="${index}"]`);
+            if (selectedAttrEl) {
+                selectedAttrEl.classList.add('ring-2', 'ring-yellow-400');
+            }
+        }
+
+        // Función para marcar atributo como clave
+        function setKeyAttribute() {
+            if (selectedAttribute) {
+                const { entity, index } = selectedAttribute;
+                entity.attributes[index].isKey = !entity.attributes[index].isKey;
+                renderEntities();
+            }
+        }
+
+        // Función para marcar atributo como multivaluado
+        function setMultivaluedAttribute() {
+            if (selectedAttribute) {
+                const { entity, index } = selectedAttribute;
+                entity.attributes[index].isMultivalued = !entity.attributes[index].isMultivalued;
+                renderEntities();
+            }
+        }
+
+        // Función para manejar click en entidad
+        function handleEntityClick(entity) {
+            if (isDrawingRelation) {
+                if (!relationStart) {
+                    relationStart = entity;
+                    updateEntityStyles();
+                    
+                    // Crear línea temporal
+                    tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    tempLine.setAttribute('stroke', '#7C3AED');
+                    tempLine.setAttribute('stroke-width', '2');
+                    tempLine.setAttribute('stroke-dasharray', '5,5');
+                    relationsSvg.appendChild(tempLine);
+                    
+                    // Actualizar posición de la línea temporal
+                    const updateTempLine = (e) => {
+                        const rect = canvas.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
+                        
+                        tempLine.setAttribute('x1', relationStart.x + relationStart.width/2);
+                        tempLine.setAttribute('y1', relationStart.y + relationStart.height/2);
+                        tempLine.setAttribute('x2', x);
+                        tempLine.setAttribute('y2', y);
+                    };
+                    
+                    canvas.addEventListener('mousemove', updateTempLine);
+                    
+                    // Mostrar opciones de relación
+                    relationTypeContainer.classList.remove('hidden');
+                } else if (relationStart.id !== entity.id) {
+                    // Confirmar la relación con el tipo seleccionado
+                    confirmRelation(entity);
+                }
+            } else {
+                selectedEntity = entity;
+                selectedAttribute = null;
+                updateEntityStyles();
+            }
+        }
+
+        // Función para confirmar relación
+        function confirmRelation(endEntity) {
+            const relationship = {
+                id: Date.now(),
+                from: relationStart.id,
+                to: endEntity.id,
+                type: relationType.value
+            };
+            relationships.push(relationship);
+            toggleRelationMode();
+            renderEntities();
+        }
+
+        // Función para actualizar estilos de entidades
+        function updateEntityStyles() {
+            const entityElements = canvas.querySelectorAll('.entity');
+            entityElements.forEach(el => {
+                const entityId = parseInt(el.dataset.entityId);
+                el.className = el.className.replace(/border-\w+-\d+|ring-\d+|ring-\w+-\d+/g, '');
+                el.className += ' border-blue-500';
+                
+                if (selectedEntity && selectedEntity.id === entityId) {
+                    el.className += ' ring-2 ring-blue-200';
+                } else if (relationStart && relationStart.id === entityId) {
+                    el.className += ' border-green-500 ring-2 ring-green-200';
+                }
+            });
+        }
+
+        // Funciones de drag and drop
+        function handleMouseDown(e, entity) {
+            if (isDrawingRelation) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            draggedEntity = entity;
+            dragOffset = {
+                x: x - entity.x,
+                y: y - entity.y
+            };
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        function handleMouseMove(e) {
+            if (!draggedEntity) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left - dragOffset.x;
+            const y = e.clientY - rect.top - dragOffset.y;
+            
+            draggedEntity.x = Math.max(0, x);
+            draggedEntity.y = Math.max(0, y);
+            
+            const entityEl = canvas.querySelector(`[data-entity-id="${draggedEntity.id}"]`);
+            if (entityEl) {
+                entityEl.style.left = draggedEntity.x + 'px';
+                entityEl.style.top = draggedEntity.y + 'px';
+            }
+            
+            renderEntities();
+        }
+
+        function handleMouseUp() {
+            draggedEntity = null;
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+
+        // Función para eliminar entidad
+        function deleteEntity(entityId) {
+            entities = entities.filter(e => e.id !== entityId);
+            relationships = relationships.filter(r => r.from !== entityId && r.to !== entityId);
+            
+            if (selectedEntity?.id === entityId) {
+                selectedEntity = null;
+            }
+            
+            renderEntities();
+        }
+
+        // Función para toggle modo relación
+        function toggleRelationMode() {
+            isDrawingRelation = !isDrawingRelation;
+            relationStart = null;
+            selectedEntity = null;
+            selectedAttribute = null;
+            
+            const btn = relationBtn;
+            const span = btn.querySelector('span');
+            
+            if (isDrawingRelation) {
+                btn.className = 'w-full py-2 px-4 rounded-md flex items-center justify-center gap-2 bg-green-600 text-white';
+                span.textContent = 'Cancelar Relación';
+                canvas.classList.add('relation-mode');
+            } else {
+                btn.className = 'w-full py-2 px-4 rounded-md flex items-center justify-center gap-2 bg-gray-200 text-gray-700 hover:bg-gray-300';
+                span.textContent = 'Crear Relación';
+                canvas.classList.remove('relation-mode');
+                
+                // Eliminar línea temporal
+                if (tempLine) {
+                    tempLine.remove();
+                    tempLine = null;
+                }
+                
+                // Ocultar selector de tipo de relación
+                relationTypeContainer.classList.add('hidden');
+                
+                // Remover event listeners temporales
+                canvas.removeEventListener('mousemove', updateTempLine);
+            }
+            
+            renderEntities();
+        }
+
+        // Función para renderizar relaciones
+        function renderRelationships() {
+            relationships.forEach(rel => {
+                const fromEntity = entities.find(e => e.id === rel.from);
+                const toEntity = entities.find(e => e.id === rel.to);
+                
+                if (!fromEntity || !toEntity) return;
+                
+                // Dibujar rombo de relación en el punto medio
+                const midX = (fromEntity.x + toEntity.x + fromEntity.width/2 + toEntity.width/2) / 2;
+                const midY = (fromEntity.y + toEntity.y + fromEntity.height/2 + toEntity.height/2) / 2;
+                
+                // Crear rombo (relación)
+                const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                diamond.setAttribute('d', `M${midX},${midY-15} L${midX+15},${midY} L${midX},${midY+15} L${midX-15},${midY} Z`);
+                diamond.setAttribute('fill', 'white');
+                diamond.setAttribute('stroke', '#7C3AED');
+                diamond.setAttribute('stroke-width', '2');
+                relationsSvg.appendChild(diamond);
+                
+                // Texto de tipo de relación
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', midX);
+                text.setAttribute('y', midY + 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('class', 'text-xs fill-purple-600');
+                text.textContent = rel.type;
+                relationsSvg.appendChild(text);
+                
+                // Líneas conectando entidades al rombo
+                const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line1.setAttribute('x1', fromEntity.x + fromEntity.width/2);
+                line1.setAttribute('y1', fromEntity.y + fromEntity.height/2);
+                line1.setAttribute('x2', midX);
+                line1.setAttribute('y2', midY);
+                line1.setAttribute('stroke', '#7C3AED');
+                line1.setAttribute('stroke-width', '2');
+                relationsSvg.appendChild(line1);
+                
+                const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line2.setAttribute('x1', midX);
+                line2.setAttribute('y1', midY);
+                line2.setAttribute('x2', toEntity.x + toEntity.width/2);
+                line2.setAttribute('y2', toEntity.y + toEntity.height/2);
+                line2.setAttribute('stroke', '#7C3AED');
+                line2.setAttribute('stroke-width', '2');
+                relationsSvg.appendChild(line2);
+                
+                // Agregar cardinalidades
+                addCardinality(fromEntity, toEntity, rel.type);
+            });
+        }
+
+        // Función para agregar cardinalidades
+        function addCardinality(fromEntity, toEntity, relationType) {
+            // Posiciones para las cardinalidades
+            const fromX = fromEntity.x + fromEntity.width/2;
+            const fromY = fromEntity.y + fromEntity.height/2;
+            const toX = toEntity.x + toEntity.width/2;
+            const toY = toEntity.y + toEntity.height/2;
+            const midX = (fromX + toX) / 2;
+            const midY = (fromY + toY) / 2;
+            
+            // Calcular ángulo para posicionamiento
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+            const distance = 20;
+            
+            // Cardinalidad cerca de la entidad origen
+            const cardinality1 = document.createElement('div');
+            cardinality1.className = 'cardinality absolute text-xs';
+            
+            // Cardinalidad cerca de la entidad destino
+            const cardinality2 = document.createElement('div');
+            cardinality2.className = 'cardinality absolute text-xs';
+            
+            // Determinar las cardinalidades según el tipo de relación
+            if (relationType === '1:1') {
+                cardinality1.textContent = '1';
+                cardinality2.textContent = '1';
+            } else if (relationType === '1:N') {
+                cardinality1.textContent = '1';
+                cardinality2.textContent = 'N';
+            } else if (relationType === 'N:M') {
+                cardinality1.textContent = 'N';
+                cardinality2.textContent = 'M';
+            }
+            
+            // Posicionar cardinalidad 1 (cerca de la entidad origen)
+            const pos1X = fromX + Math.cos(angle) * distance;
+            const pos1Y = fromY + Math.sin(angle) * distance;
+            cardinality1.style.left = pos1X + 'px';
+            cardinality1.style.top = pos1Y + 'px';
+            
+            // Posicionar cardinalidad 2 (cerca de la entidad destino)
+            const pos2X = toX - Math.cos(angle) * distance;
+            const pos2Y = toY - Math.sin(angle) * distance;
+            cardinality2.style.left = pos2X + 'px';
+            cardinality2.style.top = pos2Y + 'px';
+            
+            canvas.appendChild(cardinality1);
+            canvas.appendChild(cardinality2);
+        }
+
+        // Función para manejar subida de archivos multimedia
+        function handleFileUpload(e) {
+            const files = Array.from(e.target.files);
+            
+            files.forEach(file => {
+                const media = {
+                    id: Date.now() + Math.random(),
+                    name: file.name,
+                    type: file.type,
+                    url: URL.createObjectURL(file),
+                    file: file
+                };
+                mediaFiles.push(media);
+            });
+            
+            renderMediaList();
+            fileInput.value = ''; // Reset input
+        }
+
+        // Función para renderizar lista de medios
+        function renderMediaList() {
+            if (mediaFiles.length === 0) {
+                mediaList.innerHTML = '<p class="text-gray-500 text-sm">No hay archivos multimedia</p>';
+                return;
+            }
+            
+            mediaList.innerHTML = mediaFiles.map(media => `
+                <div class="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                    ${getMediaIcon(media.type)}
+                    <span class="text-sm flex-1 truncate">${media.name}</span>
+                    <button
+                        onclick="playMedia('${media.id}')"
+                        class="text-blue-600 hover:text-blue-800"
+                    >
+                        <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            `).join('');
+            
+            lucide.createIcons();
+        }
+
+        // Función para obtener icono de media
+        function getMediaIcon(type) {
+            if (type.startsWith('image/')) {
+                return '<i data-lucide="image" class="w-4 h-4 text-green-600"></i>';
+            } else if (type.startsWith('video/')) {
+                return '<i data-lucide="play" class="w-4 h-4 text-blue-600"></i>';
+            } else if (type.startsWith('audio/')) {
+                return '<i data-lucide="volume-2" class="w-4 h-4 text-purple-600"></i>';
+            }
+            return '<i data-lucide="file-text" class="w-4 h-4 text-gray-600"></i>';
+        }
+
+        // Función para reproducir media
+        function playMedia(mediaId) {
+            const media = mediaFiles.find(m => m.id == mediaId);
+            if (!media) return;
+            
+            mediaContent.innerHTML = '';
+            mediaInfo.innerHTML = '';
+            
+            if (media.type.startsWith('image/')) {
+                mediaContent.innerHTML = `
+                    <img src="${media.url}" alt="${media.name}" 
+                         class="max-w-full h-48 object-contain rounded">
+                `;
+            } else if (media.type.startsWith('video/')) {
+                mediaContent.innerHTML = `
+                    <video src="${media.url}" class="max-w-full h-48 rounded" controls>
+                    </video>
+                `;
+            } else if (media.type.startsWith('audio/')) {
+                mediaContent.innerHTML = `
+                    <audio src="${media.url}" class="w-full" controls>
+                    </audio>
+                `;
+            }
+            
+            mediaInfo.innerHTML = `
+                <p class="font-medium">${media.name}</p>
+                <p>Tipo: ${media.type}</p>
+            `;
+            
+            mediaPlayer.classList.remove('hidden');
+        }
+
+        // Función para exportar diagrama
+        function exportDiagram() {
+            const diagramData = {
+                entities,
+                relationships,
+                mediaFiles: mediaFiles.map(m => ({ name: m.name, type: m.type }))
+            };
+            
+            const dataStr = JSON.stringify(diagramData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'diagrama-er.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Event listeners
+        addAttributeBtn.addEventListener('click', addAttribute);
+        addEntityBtn.addEventListener('click', addEntity);
+        relationBtn.addEventListener('click', toggleRelationMode);
+        confirmRelationBtn.addEventListener('click', () => {
+            if (relationStart) {
+                // Si hay una relación iniciada pero no terminada, cancelar
+                toggleRelationMode();
+            }
+        });
+        setKeyBtn.addEventListener('click', setKeyAttribute);
+        setMultiBtn.addEventListener('click', setMultivaluedAttribute);
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        exportBtn.addEventListener('click', exportDiagram);
+        fileInput.addEventListener('change', handleFileUpload);
+
+        // Enter key para agregar entidad
+        entityNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addEntity();
+            }
+        });
+
+        // Click en el canvas para deseleccionar
+        canvas.addEventListener('click', () => {
+            if (!isDrawingRelation) {
+                selectedEntity = null;
+                selectedAttribute = null;
+                updateEntityStyles();
+                const allAttributes = canvas.querySelectorAll('.attribute');
+                allAttributes.forEach(attr => {
+                    attr.classList.remove('ring-2', 'ring-yellow-400');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
